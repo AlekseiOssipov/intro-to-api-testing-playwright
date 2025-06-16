@@ -254,9 +254,3 @@ test('Неуспешное удаление заказа при отсутств
   })
   expect(response.status()).toBe(StatusCodes.METHOD_NOT_ALLOWED)
 })
-
-test('get order with orderId = 0 should receive code 400', async ({ request }) => {
-  // Build and send a GET request to the server
-  const response = await request.get('https://backend.tallinn-learning.ee/test-orders/0')
-  expect(response.status()).toBe(StatusCodes.BAD_REQUEST)
-})

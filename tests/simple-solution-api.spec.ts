@@ -37,4 +37,3 @@ test.describe('Loan Risk Calculation API', () => {
     expect.soft(response.status()).toBe(StatusCodes.OK)
     console.log(await response.json())
   })
-})

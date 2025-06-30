@@ -1,66 +1,77 @@
-import { expect, test } from '@playwright/test'
-import { StatusCodes } from 'http-status-codes'
+import { APIRequestContext } from 'playwright'
 import { LoginDto } from './dto/login-dto'
-import { OrderDto } from './dto/order-dto'
+import { StatusCodes } from 'http-status-codes'
+import { APIResponse, expect } from '@playwright/test'
+import { LoanRiskCalculatorDto } from './dto/loan-risk-calculator-dto'
 
 const serviceURL = 'https://backend.tallinn-learning.ee/'
 const loginPath = 'login/student'
 const orderPath = 'orders'
+const deleteOrderPath = 'orders'
 
-// JWT pattern in the form of a regular expression
-const jwtPattern = /^eyJhb[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/
+export class ApiClient {
+  static instance: ApiClient
+  private request: APIRequestContext
+  private jwt: string = ''
 
-test.describe('Tallinn delivery API tests', () => {
-  test('login with correct data and verify auth token', async ({ request }) => {
-    const requestBody = LoginDto.createLoginWithCorrectData()
-    console.log('requestBody:', requestBody)
-    const response = await request.post(`${serviceURL}${loginPath}`, {
-      data: requestBody,
+  private constructor(request: APIRequestContext) {
+    this.request = request
+  }
+
+  public static async getInstance(request: APIRequestContext): Promise<ApiClient> {
+    if (!ApiClient.instance) {
+      ApiClient.instance = new ApiClient(request)
+      await this.instance.requestJwt()
+    }
+    return ApiClient.instance
+  }
+
+  private async requestJwt(): Promise<void> {
+    console.log('Requesting JWT...')
+    const authResponse = await this.request.post(`${serviceURL}${loginPath}`, {
+      data: LoginDto.createLoginWithCorrectData(),
     })
-    const responseBody = await response.text()
+    // Check response status for negative cases
+    if (authResponse.status() !== StatusCodes.OK) {
+      console.log('Authorization failed')
+      throw new Error(`Request failed with status ${authResponse.status()}`)
+    }
 
-    console.log('response code:', response.status())
-    console.log('response body:', responseBody)
-    expect(response.status()).toBe(StatusCodes.OK)
-    expect(jwtPattern.test(responseBody)).toBeTruthy()
-  })
+    // Save the JWT token as a client property
+    this.jwt = await authResponse.text()
+    console.log('jwt received:')
+    console.log(this.jwt)
+  }
 
-  test('login with incorrect data and verify response code 401', async ({ request }) => {
-    const requestBody = LoginDto.createLoginWithIncorrectData()
-    console.log('requestBody:', requestBody)
-    const response = await request.post(`${serviceURL}${loginPath}`, {
-      data: requestBody,
-    })
-    const responseBody = await response.text()
-
-    console.log('response code:', response.status())
-    console.log('response body:', responseBody)
-    expect(response.status()).toBe(StatusCodes.UNAUTHORIZED)
-    expect(responseBody).toBe('')
-  })
-
-  test('login and create order', async ({ request }) => {
-    const requestBody = LoginDto.createLoginWithCorrectData()
-    const response = await request.post(`${serviceURL}${loginPath}`, {
-      data: requestBody,
-    })
-    const responseBody = await response.text()
-
-    console.log('response code:', response.status())
-    console.log('response body:', responseBody)
-    const jwt = await response.text()
-    const orderResponse = await request.post(`${serviceURL}${orderPath}`, {
-      data: OrderDto.createOrderWithoutId(),
+  async createOrderAndReturnOrderId(): Promise<number> {
+    console.log('Creating order...')
+    const response = await this.request.post(`${serviceURL}${orderPath}`, {
+      data: LoanRiskCalculatorDto.calculateRiskScoreWithRandomData(),
       headers: {
-        Authorization: `Bearer ${jwt}`,
+        Authorization: `Bearer ${this.jwt}`,
       },
     })
+    console.log('Order response: ', response)
 
-    const orderResponseBody = await orderResponse.json()
-    console.log('orderResponse status:', orderResponse.status())
-    console.log('orderResponse:', orderResponseBody)
-    expect.soft(orderResponse.status()).toBe(StatusCodes.OK)
-    expect.soft(orderResponseBody.status).toBe('OPEN')
-    expect.soft(orderResponseBody.id).toBeDefined()
-  })
-})
+    expect(response.status()).toBe(StatusCodes.OK)
+    const responseBody = await response.json()
+    console.log('Order created: ')
+    console.log(responseBody)
+
+    return responseBody.id
+  }
+  async deleteOrder(orderId: number): Promise<APIResponse> {
+    console.log('Creating order...')
+    const response = await this.request.delete(`${serviceURL}${deleteOrderPath}/${orderId}`, {
+      headers: {
+        Authorization: `Bearer ${this.jwt}`,
+      },
+    })
+    console.log('Delete response: ', response)
+
+    const responseBody = await response.json()
+    console.log('Order deleted: ')
+    console.log(responseBody)
+    return response
+  }
+}

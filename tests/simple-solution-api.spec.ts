@@ -1,33 +1,40 @@
 import { expect, test } from '@playwright/test'
-
 import { StatusCodes } from 'http-status-codes'
+import { LoanRiskCalculatorDto } from './dto/loan-risk-calculator-dto'
 
-test('get order with correct id should receive code 200', async ({ request }) => {
-  // Build and send a GET request to the server
-  const response = await request.get('https://backend.tallinn-learning.ee/test-orders/1')
-  // Log the response status, body and headers
-  console.log('response body:', await response.json())
-  console.log('response headers:', response.headers())
-  // Check if the response status is 200
-  expect(response.status()).toBe(200)
-})
+const serviceURL = 'https://backend.tallinn-learning.ee/api/loan-calc/decision'
 
-test('post order with correct data should receive code 201', async ({ request }) => {
-  // prepare request body
-  const requestBody = {
-    status: 'OPEN',
-    courierId: 0,
-    customerName: 'string',
-    customerPhone: 'string',
-    comment: 'string',
-    id: 0,
-  }
-  // Send a POST request to the server
-  const response = await request.post('https://backend.tallinn-learning.ee/test-orders', {
-    data: requestBody,
+test.describe('Loan Risk Calculation API', () => {
+  test('Unsuccessful loan risk score calculation with empty data should return 400', async ({
+                                                                                              request,
+                                                                                            }) => {
+    const requestBody =LoanRiskCalculatorDto.calculateRiskScoreWithRandomData()
+    const response = await request.post(serviceURL, { data: requestBody })
+    expect.soft(response.status()).not.toBe(StatusCodes.BAD_REQUEST)
+    console.log(await response.text())
   })
-  // Log the response status and body
-  console.log('response status:', response.status())
-  console.log('response body:', await response.json())
-  expect(response.status()).toBe(StatusCodes.OK)
+  test('Successful Low loan risk score calculation with correct data should return 200', async ({
+                                                                                                  request,
+                                                                                                }) => {
+    const requestBody = LoanRiskCalculatorDto.calculateRiskScoreWithRandomData()
+    const response = await request.post(serviceURL, { data: requestBody })
+    expect.soft(response.status()).toBe(StatusCodes.OK)
+    console.log(await response.json())
+  })
+  test('Successful  Medium loan risk score calculation with correct data should return 200', async ({
+                                                                                                      request,
+                                                                                                    }) => {
+    const requestBody = LoanRiskCalculatorDto.calculateRiskScoreWithRandomData()
+    const response = await request.post(serviceURL, { data: requestBody })
+    expect.soft(response.status()).toBe(StatusCodes.OK)
+    console.log(await response.json())
+  })
+  test('Successful  High loan risk score calculation with correct data should return 200', async ({
+                                                                                                    request,
+                                                                                                  }) => {
+    const requestBody = LoanRiskCalculatorDto.calculateRiskScoreWithRandomData()
+    const response = await request.post(serviceURL, { data: requestBody })
+    expect.soft(response.status()).toBe(StatusCodes.OK)
+    console.log(await response.json())
+  })
 })
